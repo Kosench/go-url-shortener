@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"github.com/Kosench/go-url-shortener/internal/config"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 )
@@ -13,10 +13,31 @@ func main() {
 		log.Fatal("Failed to load config", err)
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "URL Shortener v0.1 - Coming Soon!")
+	router := gin.Default()
+
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"service": "URL Shortener",
+			"version": "0.3",
+			"status":  "development",
+		})
 	})
 
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "healthy",
+		})
+	})
+
+	apiV1 := router.Group("/api")
+	{
+		apiV1.GET("/ping", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "pong",
+			})
+		})
+	}
+
 	log.Printf("Server starting on %s", cfg.GetServerAddress())
-	log.Fatal(http.ListenAndServe(cfg.GetServerAddress(), nil))
+	log.Fatal(router.Run(cfg.GetServerAddress()))
 }
