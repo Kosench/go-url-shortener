@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/Kosench/go-url-shortener/internal/config"
 	"github.com/Kosench/go-url-shortener/internal/database"
+	"github.com/Kosench/go-url-shortener/internal/repository"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -25,11 +26,9 @@ func main() {
 	}
 	defer db.Close()
 
-	if version, err := database.GetVersion(db); err == nil {
-		log.Println("Connected to database: %s", version[:50]+"...")
-	} else {
-		log.Println("Successfully connected to database")
-	}
+	log.Println("Successfully connected to database")
+
+	urlRepo := repository.NewPostgresURLRepository(db)
 
 	router := gin.Default()
 
@@ -74,6 +73,21 @@ func main() {
 		apiV1.GET("/ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"message": "pong",
+			})
+		})
+
+		apiV1.GET("/test-repo", func(c *gin.Context) {
+			exists, err := urlRepo.ExistsByShortCode(c.Request.Context(), "test123")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": "Repository test failed",
+				})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message":     "Repository is working",
+				"test_exists": exists,
 			})
 		})
 	}
