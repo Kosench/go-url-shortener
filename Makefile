@@ -1,4 +1,4 @@
-.PHONY: run db-up db-down
+.PHONY: run db-up db-down migrate-up migrate-down status dev-setup
 
 DATABASE_URL=postgres://urlshortener:password@localhost:5432/urlshortener?sslmode=disable
 
