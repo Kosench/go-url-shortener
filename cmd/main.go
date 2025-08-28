@@ -3,7 +3,9 @@ package main
 import (
 	"github.com/Kosench/go-url-shortener/internal/config"
 	"github.com/Kosench/go-url-shortener/internal/database"
+	"github.com/Kosench/go-url-shortener/internal/handler"
 	"github.com/Kosench/go-url-shortener/internal/repository"
+	"github.com/Kosench/go-url-shortener/internal/service"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -29,9 +31,12 @@ func main() {
 	log.Println("Successfully connected to database")
 
 	urlRepo := repository.NewPostgresURLRepository(db)
+	urlService := service.NewURLService(urlRepo, "http://localhost:8080")
+	urlHandler := handler.NewURLHandler(urlService)
 
 	router := gin.Default()
 
+	// Базовый endpoint
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"service": "URL Shortener",
@@ -40,6 +45,7 @@ func main() {
 		})
 	})
 
+	// Health check
 	router.GET("/health", func(c *gin.Context) {
 		response := gin.H{
 			"status": "healthy",
@@ -70,26 +76,9 @@ func main() {
 
 	apiV1 := router.Group("/api")
 	{
-		apiV1.GET("/ping", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{
-				"message": "pong",
-			})
-		})
-
-		apiV1.GET("/test-repo", func(c *gin.Context) {
-			exists, err := urlRepo.ExistsByShortCode(c.Request.Context(), "test123")
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "Repository test failed",
-				})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message":     "Repository is working",
-				"test_exists": exists,
-			})
-		})
+		// URL операции
+		apiV1.POST("/urls", urlHandler.CreateURL)
+		apiV1.GET("/urls/:shortCode", urlHandler.GetURL)
 	}
 
 	log.Printf("Server starting on %s", cfg.GetServerAddress())
