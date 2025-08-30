@@ -26,7 +26,7 @@ type DatabaseConfig struct {
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
+	viper.AddConfigPath("./configs")
 	viper.AddConfigPath(".")
 
 	viper.SetDefault("server.host", "localhost")
@@ -39,7 +39,7 @@ func Load() (*Config, error) {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("rror reading config: %w", err)
+			return nil, fmt.Errorf("error reading config: %w", err)
 		}
 	}
 
