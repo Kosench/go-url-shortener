@@ -4,28 +4,30 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 )
 
 func ValidatorURL(rawURL string) error {
 	if rawURL == "" {
-		fmt.Errorf("URL cannot be empty")
+		apperrors.NewValidationError("url", "URL cannot be empty")
 	}
 
 	if len(rawURL) > 2048 {
-		return fmt.Errorf("URL is too long (max 2048 characters)")
+		return apperrors.NewValidationError("url", "URL is too long (max 2048 characters)")
 	}
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("invalid URL format: %w", err)
+		return apperrors.NewValidationError("url", fmt.Sprintf("invalid URL format: %v", err))
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return fmt.Errorf("URL must start with http:// or https://")
+		return apperrors.NewValidationError("url", "URL must start with http:// or https://")
 	}
 
 	if parsedURL.Host == "" {
-		return fmt.Errorf("URL must comtain a valid host")
+		return apperrors.NewValidationError("url", "URL must contain a valid host")
 	}
 
 	return nil

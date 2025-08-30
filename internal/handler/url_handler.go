@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"errors"
+	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 	"github.com/Kosench/go-url-shortener/internal/model"
 	"github.com/Kosench/go-url-shortener/internal/service"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"strings"
 )
 
 type URLHandler struct {
@@ -28,22 +29,14 @@ func (h *URLHandler) CreateURL(c *gin.Context) {
 		return
 	}
 
+	// Создаем URL
 	response, err := h.urlService.CreateShortURL(c.Request.Context(), &req)
 	if err != nil {
-		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error":   "url_not_found",
-				"message": "URL not found",
-			})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "internal_error",
-				"message": "Failed to get URL info",
-			})
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, response)
+
+	c.JSON(http.StatusCreated, response)
 }
 
 func (h *URLHandler) GetURL(c *gin.Context) {
@@ -58,50 +51,49 @@ func (h *URLHandler) GetURL(c *gin.Context) {
 
 	response, err := h.urlService.GetURL(c.Request.Context(), shortCode)
 	if err != nil {
-		if isNotFoundError(err) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error":   "url_not_found",
-				"message": "URL not found",
-			})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "internal_error",
-				"message": "Failed to get URL info",
-			})
-		}
+		h.handleError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, response)
 }
 
-func isValidationError(err error) bool {
-	if err == nil {
-		return false
+// handleError обрабатывает ошибки и возвращает соответствующие HTTP коды
+func (h *URLHandler) handleError(c *gin.Context, err error) {
+	// Проверяем ValidationError
+	if apperrors.IsValidationError(err) {
+		validationErr := apperrors.GetValidationError(err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "validation_error",
+			"message": validationErr.Message,
+			"field":   validationErr.Field,
+		})
+		return
 	}
 
-	errStr := err.Error()
-	validationKeywords := []string{
-		"validation",
-		"invalid",
-		"required",
-		"format",
-		"length",
+	// Проверяем URL not found
+	if errors.Is(err, apperrors.ErrURLNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "url_not_found",
+			"message": "URL not found",
+		})
+		return
 	}
 
-	for _, keyword := range validationKeywords {
-		if strings.Contains(strings.ToLower(errStr), keyword) {
-			return true
-		}
+	// Проверяем BusinessError
+	if apperrors.IsBusinessError(err) {
+		businessErr := apperrors.GetBusinessError(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "business_error",
+			"message": businessErr.Message,
+			"code":    businessErr.Code,
+		})
+		return
 	}
 
-	return false
-}
-
-func isNotFoundError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	return strings.Contains(strings.ToLower(err.Error()), "not found")
+	// Неизвестная ошибка
+	c.JSON(http.StatusInternalServerError, gin.H{
+		"error":   "internal_error",
+		"message": "An unexpected error occurred",
+	})
 }

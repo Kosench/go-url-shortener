@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/Kosench/go-url-shortener/internal/model"
 	"time"
+
+	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 )
 
 type PostgresURLRepository struct {
@@ -34,7 +36,11 @@ func (r PostgresURLRepository) Create(ctx context.Context, url *model.URL) error
 	).Scan(&url.ID)
 
 	if err != nil {
-		return fmt.Errorf("failed to create URL: %w", err)
+		return apperrors.NewBusinessError(
+			"DATABASE_ERROR",
+			"failed to create URL",
+			err,
+		)
 	}
 
 	return nil
@@ -56,11 +62,15 @@ func (r *PostgresURLRepository) GetByShortCode(ctx context.Context, shortCode st
 		&url.CreatedAt)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("URL not found")
+		return nil, fmt.Errorf("URL with short code '%s': %w", shortCode, apperrors.ErrURLNotFound)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get URL: %w", err)
+		return nil, apperrors.NewBusinessError(
+			"DATABASE_ERROR",
+			"failed to get URL",
+			err,
+		)
 	}
 
 	return url, nil
@@ -72,7 +82,11 @@ func (r PostgresURLRepository) ExistsByShortCode(ctx context.Context, shortCode 
 	var exists bool
 	err := r.db.QueryRowContext(ctx, query, shortCode).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("failed to check short code existence: %w", err)
+		return false, apperrors.NewBusinessError(
+			"DATABASE_ERROR",
+			"failed to check short code existence",
+			err,
+		)
 	}
 
 	return exists, nil

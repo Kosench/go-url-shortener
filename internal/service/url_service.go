@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 	"github.com/Kosench/go-url-shortener/internal/model"
 	"github.com/Kosench/go-url-shortener/internal/repository"
 	"github.com/Kosench/go-url-shortener/internal/utils"
@@ -25,14 +26,14 @@ func NewURLService(urlRepo repository.URLRepository, baseURL string) *URLService
 
 func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLRequest) (*model.URLResponse, error) {
 	if err := utils.ValidatorURL(req.URL); err != nil {
-		return nil, fmt.Errorf("validate error: %w", err)
+		return nil, err
 	}
 
 	sanitizedURL := utils.SanitizeInput(req.URL)
 
 	shortCode, err := s.generateUniqueShortCode(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate short code: %w", err)
+		return nil, err
 	}
 
 	url := &model.URL{
@@ -43,7 +44,7 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 	}
 
 	if err := s.urlRepo.Create(ctx, url); err != nil {
-		return nil, fmt.Errorf("failed to create URL: %w", err)
+		return nil, err
 	}
 
 	return &model.URLResponse{
@@ -56,12 +57,12 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 
 func (s *URLService) GetURL(ctx context.Context, shortCode string) (*model.URLResponse, error) {
 	if shortCode == "" {
-		return nil, fmt.Errorf("short code cannot be empty")
+		return nil, apperrors.NewValidationError("shortCode", "short code cannot be empty")
 	}
 
 	url, err := s.urlRepo.GetByShortCode(ctx, shortCode)
 	if err != nil {
-		return nil, fmt.Errorf("URL not found")
+		return nil, err
 	}
 
 	return &model.URLResponse{
@@ -76,7 +77,7 @@ func (s *URLService) generateUniqueShortCode(ctx context.Context) (string, error
 	for attempt := 0; attempt < s.maxRetries; attempt++ {
 		code, err := utils.GenerateShortCode()
 		if err != nil {
-			return "", fmt.Errorf("failed to generate code: %w", err)
+			continue // пробуем еще раз
 		}
 
 		// Проверяем уникальность
@@ -90,7 +91,11 @@ func (s *URLService) generateUniqueShortCode(ctx context.Context) (string, error
 		}
 	}
 
-	return "", fmt.Errorf("failed to generate unique short code after %d attempts", s.maxRetries)
+	return "", apperrors.NewBusinessError(
+		"SHORT_CODE_GENERATION",
+		fmt.Sprintf("failed to generate unique short code after %d attempts", s.maxRetries),
+		nil,
+	)
 }
 
 func (s *URLService) buildShortURL(shortCode string) string {
