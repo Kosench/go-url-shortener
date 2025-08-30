@@ -25,7 +25,7 @@ func NewURLService(urlRepo repository.URLRepository, baseURL string) *URLService
 }
 
 func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLRequest) (*model.URLResponse, error) {
-	if err := utils.ValidatorURL(req.URL); err != nil {
+	if err := utils.ValidateURL(req.URL); err != nil {
 		return nil, err
 	}
 

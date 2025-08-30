@@ -8,7 +8,7 @@ import (
 	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 )
 
-func ValidatorURL(rawURL string) error {
+func ValidateURL(rawURL string) error {
 	if rawURL == "" {
 		return apperrors.NewValidationError("url", "URL cannot be empty")
 	}
