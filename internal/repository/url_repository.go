@@ -20,7 +20,7 @@ func NewPostgresURLRepository(db *sql.DB) URLRepository {
 	}
 }
 
-func (r PostgresURLRepository) Create(ctx context.Context, url *model.URL) error {
+func (r *PostgresURLRepository) Create(ctx context.Context, url *model.URL) error {
 	query := `
 	INSERT INTO urls (original_url, short_code, created_at)
 	VALUES ($1, $2, $3)
@@ -76,7 +76,7 @@ func (r *PostgresURLRepository) GetByShortCode(ctx context.Context, shortCode st
 	return url, nil
 }
 
-func (r PostgresURLRepository) ExistsByShortCode(ctx context.Context, shortCode string) (bool, error) {
+func (r *PostgresURLRepository) ExistsByShortCode(ctx context.Context, shortCode string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM urls WHERE short_code = $1)`
 
 	var exists bool

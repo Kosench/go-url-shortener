@@ -48,6 +48,7 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 	}
 
 	return &model.URLResponse{
+		ID:          url.ID,
 		ShortCode:   shortCode,
 		OriginalURL: url.OriginalURL,
 		ShortURL:    s.buildShortURL(shortCode),
@@ -67,6 +68,7 @@ func (s *URLService) GetURL(ctx context.Context, shortCode string) (*model.URLRe
 	}
 
 	return &model.URLResponse{
+		ID:          url.ID,
 		ShortCode:   url.ShortCode,
 		OriginalURL: url.OriginalURL,
 		ShortURL:    s.buildShortURL(url.ShortCode),
@@ -75,7 +77,7 @@ func (s *URLService) GetURL(ctx context.Context, shortCode string) (*model.URLRe
 	}, nil
 }
 
-func (s *URLService) GetOriginURL(ctx context.Context, shortCode string) (string, error) {
+func (s *URLService) GetOriginalURL(ctx context.Context, shortCode string) (string, error) {
 	if shortCode == "" {
 		return "", apperrors.NewValidationError("shortCode", "short code cannot be empty")
 	}

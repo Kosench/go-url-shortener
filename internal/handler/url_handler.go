@@ -113,7 +113,7 @@ func (h *URLHandler) RedirectURL(c *gin.Context) {
 	}
 
 	// Получаем оригинальный URL
-	originalURL, err := h.urlService.GetOriginURL(c.Request.Context(), shortCode)
+	originalURL, err := h.urlService.GetOriginalURL(c.Request.Context(), shortCode)
 	if err != nil {
 		h.handleError(c, err)
 		return
