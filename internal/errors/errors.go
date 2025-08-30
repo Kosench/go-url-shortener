@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+var (
+	ErrURLNotFound      = errors.New("URL not found")
+	ErrURLAlreadyExists = errors.New("URL already exists")
+	ErrInvalidURL       = errors.New("invalid URL")
+	ErrInvalidShortCode = errors.New("invalid short code")
+)
+
 type ValidationError struct {
 	Field   string
 	Message string
