@@ -5,13 +5,6 @@ import (
 	"fmt"
 )
 
-var (
-	ErrURLNotFound      = errors.New("URL not found")
-	ErrURLAlreadyExists = errors.New("URL already exists")
-	ErrInvalidURL       = errors.New("invalid URL")
-	ErrInvalidShortCode = errors.New("invalid short code")
-)
-
 type ValidationError struct {
 	Field   string
 	Message string
@@ -59,6 +52,9 @@ func NewBusinessError(code, message string, cause error) *BusinessError {
 var (
 	ErrShortCodeGeneration = NewBusinessError("SHORT_CODE_GENERATION", "failed to generate unique short code", nil)
 	ErrDatabaseOperation   = NewBusinessError("DATABASE_ERROR", "database operation failed", nil)
+
+	// ErrShortCodeExists — короткий код уже существует (конфликт уникальности)
+	ErrShortCodeExists = NewBusinessError("SHORT_CODE_EXISTS", "short code already exists", nil)
 )
 
 // IsValidationError проверяет является ли ошибка ошибкой валидации
