@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/Kosench/go-url-shortener/internal/model"
-	"time"
 
 	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 )
@@ -21,9 +21,11 @@ func NewPostgresURLRepository(db *sql.DB) URLRepository {
 }
 
 func (r *PostgresURLRepository) Create(ctx context.Context, url *model.URL) error {
+	// Атомарная вставка: если short_code уже существует, RETURNING не вернёт строк -> sql.ErrNoRows
 	query := `
 	INSERT INTO urls (original_url, short_code, created_at)
 	VALUES ($1, $2, $3)
+	ON CONFLICT (short_code) DO NOTHING
 	RETURNING id
 	`
 
@@ -32,8 +34,13 @@ func (r *PostgresURLRepository) Create(ctx context.Context, url *model.URL) erro
 		query,
 		url.OriginalURL,
 		url.ShortCode,
-		time.Now(),
+		url.CreatedAt,
 	).Scan(&url.ID)
+
+	if err == sql.ErrNoRows {
+		// конфликт уникальности short_code
+		return apperrors.ErrShortCodeExists
+	}
 
 	if err != nil {
 		return apperrors.NewBusinessError(

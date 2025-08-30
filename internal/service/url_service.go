@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
+
 	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 	"github.com/Kosench/go-url-shortener/internal/model"
 	"github.com/Kosench/go-url-shortener/internal/repository"
 	"github.com/Kosench/go-url-shortener/internal/utils"
-	"time"
 )
 
 type URLService struct {
@@ -31,30 +33,48 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 
 	sanitizedURL := utils.SanitizeInput(req.URL)
 
-	shortCode, err := s.generateUniqueShortCode(ctx)
-	if err != nil {
-		return nil, err
+	var lastErr error
+	for attempt := 0; attempt < s.maxRetries; attempt++ {
+		code, err := utils.GenerateShortCode()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		url := &model.URL{
+			OriginalURL: sanitizedURL,
+			ShortCode:   code,
+			ClickCount:  0,
+			CreatedAt:   time.Now(),
+		}
+
+		if err := s.urlRepo.Create(ctx, url); err != nil {
+			// Если код уже занят — пробуем снова
+			if errors.Is(err, apperrors.ErrShortCodeExists) {
+				lastErr = err
+				continue
+			}
+			// любая другая ошибка — возвращаем вверх
+			return nil, err
+		}
+
+		// Усп��х
+		return &model.URLResponse{
+			ID:          url.ID,
+			ShortCode:   code,
+			OriginalURL: url.OriginalURL,
+			ShortURL:    s.buildShortURL(code),
+			ClickCount:  url.ClickCount,
+			CreatedAt:   url.CreatedAt,
+		}, nil
 	}
 
-	url := &model.URL{
-		OriginalURL: sanitizedURL,
-		ShortCode:   shortCode,
-		ClickCount:  0,
-		CreatedAt:   time.Now(),
-	}
-
-	if err := s.urlRepo.Create(ctx, url); err != nil {
-		return nil, err
-	}
-
-	return &model.URLResponse{
-		ID:          url.ID,
-		ShortCode:   shortCode,
-		OriginalURL: url.OriginalURL,
-		ShortURL:    s.buildShortURL(shortCode),
-		ClickCount:  url.ClickCount,
-		CreatedAt:   url.CreatedAt,
-	}, nil
+	// Не получилось за maxRetries попыток
+	return nil, apperrors.NewBusinessError(
+		"SHORT_CODE_GENERATION",
+		fmt.Sprintf("failed to generate unique short code after %d attempts: last error: %v", s.maxRetries, lastErr),
+		lastErr,
+	)
 }
 
 func (s *URLService) GetURL(ctx context.Context, shortCode string) (*model.URLResponse, error) {
@@ -101,31 +121,6 @@ func (s *URLService) RecordClick(ctx context.Context, shortCode string) error {
 	}
 
 	return s.urlRepo.IncrementClickCount(ctx, url.ID)
-}
-
-func (s *URLService) generateUniqueShortCode(ctx context.Context) (string, error) {
-	for attempt := 0; attempt < s.maxRetries; attempt++ {
-		code, err := utils.GenerateShortCode()
-		if err != nil {
-			continue // пробуем еще раз
-		}
-
-		// Проверяем уникальность
-		exists, err := s.urlRepo.ExistsByShortCode(ctx, code)
-		if err != nil {
-			continue // пробуем еще раз
-		}
-
-		if !exists {
-			return code, nil
-		}
-	}
-
-	return "", apperrors.NewBusinessError(
-		"SHORT_CODE_GENERATION",
-		fmt.Sprintf("failed to generate unique short code after %d attempts", s.maxRetries),
-		nil,
-	)
 }
 
 func (s *URLService) buildShortURL(shortCode string) string {
