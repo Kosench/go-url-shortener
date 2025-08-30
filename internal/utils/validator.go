@@ -10,7 +10,7 @@ import (
 
 func ValidatorURL(rawURL string) error {
 	if rawURL == "" {
-		apperrors.NewValidationError("url", "URL cannot be empty")
+		return apperrors.NewValidationError("url", "URL cannot be empty")
 	}
 
 	if len(rawURL) > 2048 {

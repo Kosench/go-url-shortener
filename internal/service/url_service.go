@@ -48,9 +48,10 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 	}
 
 	return &model.URLResponse{
-		ID:          shortCode,
+		ShortCode:   shortCode,
 		OriginalURL: url.OriginalURL,
 		ShortURL:    s.buildShortURL(shortCode),
+		ClickCount:  url.ClickCount,
 		CreatedAt:   url.CreatedAt,
 	}, nil
 }
@@ -66,11 +67,38 @@ func (s *URLService) GetURL(ctx context.Context, shortCode string) (*model.URLRe
 	}
 
 	return &model.URLResponse{
-		ID:          url.ShortCode,
+		ShortCode:   url.ShortCode,
 		OriginalURL: url.OriginalURL,
 		ShortURL:    s.buildShortURL(url.ShortCode),
+		ClickCount:  url.ClickCount,
 		CreatedAt:   url.CreatedAt,
 	}, nil
+}
+
+func (s *URLService) GetOriginURL(ctx context.Context, shortCode string) (string, error) {
+	if shortCode == "" {
+		return "", apperrors.NewValidationError("shortCode", "short code cannot be empty")
+	}
+
+	url, err := s.urlRepo.GetByShortCode(ctx, shortCode)
+	if err != nil {
+		return "", err
+	}
+
+	return url.OriginalURL, nil
+}
+
+func (s *URLService) RecordClick(ctx context.Context, shortCode string) error {
+	if shortCode == "" {
+		return apperrors.NewValidationError("shortCode", "short code cannot be empty")
+	}
+
+	url, err := s.urlRepo.GetByShortCode(ctx, shortCode)
+	if err != nil {
+		return err
+	}
+
+	return s.urlRepo.IncrementClickCount(ctx, url.ID)
 }
 
 func (s *URLService) generateUniqueShortCode(ctx context.Context) (string, error) {

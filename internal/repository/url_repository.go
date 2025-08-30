@@ -91,3 +91,34 @@ func (r PostgresURLRepository) ExistsByShortCode(ctx context.Context, shortCode 
 
 	return exists, nil
 }
+
+func (r *PostgresURLRepository) IncrementClickCount(ctx context.Context, id int64) error {
+	query := `
+	UPDATE urls
+	SET click_count = click_count + 1
+	WHERE id = $1
+	`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return apperrors.NewBusinessError(
+			"DATABASE_ERROR",
+			"failed to increment click count",
+			err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return apperrors.NewBusinessError(
+			"DATABASE_ERROR",
+			"failed to get rows affected",
+			err,
+		)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("URL with ID %d: %w", id, apperrors.ErrURLNotFound)
+	}
+
+	return nil
+}

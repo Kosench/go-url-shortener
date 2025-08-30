@@ -15,8 +15,9 @@ type CreateURLRequest struct {
 }
 
 type URLResponse struct {
-	ID          string    `json:"id"`
+	ShortCode   string    `json:"short_code"` // Переименовать для ясности
 	OriginalURL string    `json:"original_url"`
 	ShortURL    string    `json:"short_url"`
+	ClickCount  int64     `json:"click_count"`
 	CreatedAt   time.Time `json:"created_at"`
 }

@@ -81,6 +81,10 @@ func main() {
 		apiV1.GET("/urls/:shortCode", urlHandler.GetURL)
 	}
 
+	router.GET("/:shortCode", urlHandler.RedirectURL)
+
 	log.Printf("Server starting on %s", cfg.GetServerAddress())
+	log.Printf("API endpoints: POST/GET /api/urls")
+	log.Printf("Redirect endpoint: GET /{shortCode}")
 	log.Fatal(router.Run(cfg.GetServerAddress()))
 }

@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	apperrors "github.com/Kosench/go-url-shortener/internal/errors"
 	"github.com/Kosench/go-url-shortener/internal/model"
 	"github.com/Kosench/go-url-shortener/internal/service"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+	"time"
 )
 
 type URLHandler struct {
@@ -96,4 +99,35 @@ func (h *URLHandler) handleError(c *gin.Context, err error) {
 		"error":   "internal_error",
 		"message": "An unexpected error occurred",
 	})
+}
+func (h *URLHandler) RedirectURL(c *gin.Context) {
+	shortCode := c.Param("shortCode")
+
+	// Gin всегда вернет какое-то значение для :shortCode, но проверим на всякий случай
+	if shortCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_request",
+			"message": "Short code is required",
+		})
+		return
+	}
+
+	// Получаем оригинальный URL
+	originalURL, err := h.urlService.GetOriginURL(c.Request.Context(), shortCode)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := h.urlService.RecordClick(ctx, shortCode); err != nil {
+			log.Printf("Failed to record click for shortCode %s: %v", shortCode, err)
+		}
+	}()
+
+	// Выполняем редирект (HTTP 302 - Found)
+	c.Redirect(http.StatusFound, originalURL)
 }
