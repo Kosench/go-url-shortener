@@ -36,13 +36,13 @@ func main() {
 
 	router := gin.Default()
 
-	// Базовый endpoint
+	// Статические файлы и HTML шаблоны
+	router.Static("/static", "./web/static")
+	router.LoadHTMLGlob("web/static/*")
+
+	// Базовый endpoint - HTML страница
 	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"service": "URL Shortener",
-			"version": "0.3",
-			"status":  "development",
-		})
+		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
 	// Health check
