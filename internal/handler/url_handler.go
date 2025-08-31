@@ -12,8 +12,15 @@ import (
 	"time"
 )
 
+type URLServiceInterface interface {
+	CreateShortURL(ctx context.Context, req *model.CreateURLRequest) (*model.URLResponse, error)
+	GetURL(ctx context.Context, shortCode string) (*model.URLResponse, error)
+	GetOriginalURL(ctx context.Context, shortCode string) (string, error)
+	RecordClick(ctx context.Context, shortCode string) error
+}
+
 type URLHandler struct {
-	urlService *service.URLService
+	urlService URLServiceInterface
 }
 
 func NewURLHandler(urlService *service.URLService) *URLHandler {
