@@ -8,3 +8,8 @@ database:
   user: "urlshortener"
   password: "password"
   dbname: "urlshortener"
+
+app:
+  base_url: "http://localhost:8080"
+  short_code_length: 6
+  max_retries: 5

@@ -1,14 +1,20 @@
 package main
 
 import (
+	"context"
 	"github.com/Kosench/go-url-shortener/internal/config"
 	"github.com/Kosench/go-url-shortener/internal/database"
 	"github.com/Kosench/go-url-shortener/internal/handler"
 	"github.com/Kosench/go-url-shortener/internal/repository"
 	"github.com/Kosench/go-url-shortener/internal/service"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -30,11 +36,23 @@ func main() {
 
 	log.Println("Successfully connected to database")
 
+	baseURL := cfg.GetBaseURL()
+
 	urlRepo := repository.NewPostgresURLRepository(db)
-	urlService := service.NewURLService(urlRepo, "http://localhost:8080")
+	urlService := service.NewURLService(urlRepo, baseURL)
 	urlHandler := handler.NewURLHandler(urlService)
 
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // В продакшене указать конкретные домены
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}))
+	router.Use(RateLimitMiddleware(100, time.Minute)) // 100 запросов в минуту
 
 	// Статические файлы и HTML шаблоны
 	router.Static("/static", "./web/static")
@@ -83,8 +101,74 @@ func main() {
 
 	router.GET("/:shortCode", urlHandler.RedirectURL)
 
-	log.Printf("Server starting on %s", cfg.GetServerAddress())
-	log.Printf("API endpoints: POST/GET /api/urls")
-	log.Printf("Redirect endpoint: GET /{shortCode}")
-	log.Fatal(router.Run(cfg.GetServerAddress()))
+	srv := &http.Server{
+		Addr:           cfg.GetServerAddress(),
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	go func() {
+		log.Printf("Server starting on %s", cfg.GetServerAddress())
+		log.Printf("API endpoints: POST/GET /api/urls")
+		log.Printf("Redirect endpoint: GET /{shortCode}")
+
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+
+	log.Println("Server exited")
+}
+
+// RateLimitMiddleware - простой rate limiter (в продакшене использовать Redis)
+func RateLimitMiddleware(maxRequests int, window time.Duration) gin.HandlerFunc {
+	// Простая in-memory реализация
+	// TODO: Заменить на Redis-based rate limiter
+	requests := make(map[string][]time.Time)
+
+	return func(c *gin.Context) {
+		clientIP := c.ClientIP()
+		now := time.Now()
+
+		// Очищаем старые записи
+		if times, exists := requests[clientIP]; exists {
+			validTimes := []time.Time{}
+			for _, t := range times {
+				if now.Sub(t) < window {
+					validTimes = append(validTimes, t)
+				}
+			}
+			requests[clientIP] = validTimes
+		}
+
+		// Проверяем лимит
+		if len(requests[clientIP]) >= maxRequests {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":   "rate_limit_exceeded",
+				"message": "Too many requests",
+			})
+			c.Abort()
+			return
+		}
+
+		// Добавляем текущий запрос
+		requests[clientIP] = append(requests[clientIP], now)
+
+		c.Next()
+	}
 }

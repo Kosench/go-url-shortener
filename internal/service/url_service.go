@@ -54,11 +54,9 @@ func (s *URLService) CreateShortURL(ctx context.Context, req *model.CreateURLReq
 				lastErr = err
 				continue
 			}
-			// любая другая ошибка — возвращаем вверх
 			return nil, err
 		}
 
-		// Усп��х
 		return &model.URLResponse{
 			ID:          url.ID,
 			ShortCode:   code,
