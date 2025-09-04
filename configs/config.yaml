@@ -8,3 +8,21 @@ database:
   user: "urlshortener"
   password: "password"
   dbname: "urlshortener"
+
+app:
+  base_url: "http://localhost:8080"
+  short_code_length: 6
+  max_retries: 5
+  environment: "development"
+  allowed_origins: ["*"]
+
+# Подготовка для Redis (этап 2.1)
+redis:
+  host: "localhost"
+  port: "6379"
+  password: ""
+  db: 0
+  pool_size: 10
+  min_idle_conns: 5
+  max_retry: 3
+  cache_ttl: 3600  # 1 час в секундах
